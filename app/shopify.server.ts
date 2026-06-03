@@ -2,6 +2,7 @@ import "@shopify/shopify-app-react-router/adapters/node";
 import {
   ApiVersion,
   AppDistribution,
+  BillingInterval,
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
@@ -14,8 +15,20 @@ const shopify = shopifyApp({
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
-  sessionStorage: new PrismaSessionStorage(prisma),
+  sessionStorage: new PrismaSessionStorage(prisma) as any,
   distribution: AppDistribution.AppStore,
+  billing: {
+    "ComboLoco Pro": {
+      lineItems: [
+        {
+          amount: 9.99,
+          currencyCode: "USD",
+          interval: BillingInterval.Every30Days,
+        },
+      ],
+      trialDays: 7,
+    },
+  },
   future: {
     expiringOfflineAccessTokens: true,
   },

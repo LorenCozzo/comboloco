@@ -135,13 +135,18 @@ export default function BundleList() {
         </s-button>
       )}
 
-      <s-section heading="Configuración">
+      <s-section heading="Cómo activar el widget en tu tienda">
         <s-stack direction="block" gap="base">
-          <s-text>
-            Activá el widget en tu tema para que aparezca en las páginas de producto.
-          </s-text>
+          <s-text>Seguí estos pasos para que el widget de ofertas aparezca en las páginas de producto:</s-text>
+          <s-ordered-list>
+            <s-list-item>Hacé clic en "Ir al editor de tema" para abrir el editor de Shopify.</s-list-item>
+            <s-list-item>En el panel izquierdo, buscá la sección <strong>App embeds</strong> (Aplicaciones integradas).</s-list-item>
+            <s-list-item>Activá el toggle de <strong>Quantity Breaks</strong>.</s-list-item>
+            <s-list-item>Hacé clic en <strong>Guardar</strong> en el editor de tema.</s-list-item>
+            <s-list-item>Volvé aquí y creá tu primera oferta.</s-list-item>
+          </s-ordered-list>
           <s-button variant="secondary" onClick={() => window.open(themeEditorUrl, "_blank")}>
-            Activar widget en el tema →
+            Ir al editor de tema →
           </s-button>
         </s-stack>
       </s-section>
