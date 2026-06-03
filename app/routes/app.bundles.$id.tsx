@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useLoaderData, useFetcher, useNavigate } from "react-router";
+import { useLoaderData, useFetcher, useNavigate, useRouteError } from "react-router";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import db from "../db.server";
@@ -89,6 +89,14 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   const applyTo  = formData.get("applyTo") as string;
   const productId = (formData.get("productId") as string) || null;
+
+  const tiersJson = JSON.stringify(tiersData.map((t, i) => ({
+    quantity: Number(t.quantity),
+    discountType: t.discountType,
+    discountValue: Number(t.discountValue),
+    position: i,
+  })));
+
   if (applyTo === "PRODUCT" && productId) {
     await admin.graphql(
       `#graphql
@@ -102,18 +110,48 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
             metafields: [{
               namespace: "quantity_breaks",
               key: "config",
-              value: JSON.stringify(tiersData.map((t, i) => ({
-                quantity: Number(t.quantity),
-                discountType: t.discountType,
-                discountValue: Number(t.discountValue),
-                position: i,
-              }))),
+              value: tiersJson,
               type: "json",
             }],
           },
         },
       },
     );
+  }
+
+  if (applyTo === "ALL") {
+    // Buscar el discount node de esta función para escribirle el metafield
+    const discountRes = await admin.graphql(`
+      #graphql
+      query GetDiscount {
+        discountNodes(first: 5, query: "title:ComboLoco Quantity Breaks") {
+          nodes { id }
+        }
+      }
+    `);
+    const discountData = await discountRes.json();
+    const discountId = discountData?.data?.discountNodes?.nodes?.[0]?.id;
+    if (discountId) {
+      await admin.graphql(
+        `#graphql
+        mutation SetDiscountMetafield($metafields: [MetafieldsSetInput!]!) {
+          metafieldsSet(metafields: $metafields) {
+            userErrors { field message }
+          }
+        }`,
+        {
+          variables: {
+            metafields: [{
+              ownerId: discountId,
+              namespace: "quantity_breaks",
+              key: "config",
+              value: tiersJson,
+              type: "json",
+            }],
+          },
+        },
+      );
+    }
   }
 
   return { ok: true };
@@ -479,8 +517,9 @@ export default function BundleEditor() {
                     <label style={lbl}>{tier.discountType === "FIXED" ? "Precio total" : "% de descuento"}</label>
                     <input style={inp} type="number" min={0}
                       step={tier.discountType === "FIXED" ? 100 : 1}
-                      value={tier.discountValue}
-                      onChange={(e) => updTier(i, "discountValue", Number(e.target.value))} />
+                      value={tier.discountValue === 0 ? "" : tier.discountValue}
+                      placeholder="0"
+                      onChange={(e) => updTier(i, "discountValue", e.target.value === "" ? 0 : Number(e.target.value))} />
                   </div>
                 </div>
 
@@ -620,6 +659,10 @@ export default function BundleEditor() {
       </div> {/* cierre grid */}
     </s-page>
   );
+}
+
+export function ErrorBoundary() {
+  return boundary.error(useRouteError());
 }
 
 export const headers: HeadersFunction = (headersArgs) => {

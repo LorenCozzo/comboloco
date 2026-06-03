@@ -3,7 +3,7 @@ import type {
   HeadersFunction,
   LoaderFunctionArgs,
 } from "react-router";
-import { redirect, useLoaderData, useFetcher } from "react-router";
+import { redirect, useLoaderData, useFetcher, useRouteError } from "react-router";
 import { authenticate, ensureAutomaticDiscount } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import db from "../db.server";
@@ -175,6 +175,10 @@ export default function BundleList() {
       </s-section>
     </s-page>
   );
+}
+
+export function ErrorBoundary() {
+  return boundary.error(useRouteError());
 }
 
 export const headers: HeadersFunction = (headersArgs) => {
