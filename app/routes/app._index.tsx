@@ -132,7 +132,7 @@ export default function BundleList() {
   const handleCreate = () =>
     createFetcher.submit({ _action: "create" }, { method: "post" });
 
-  const themeEditorUrl = `https://${shop}/admin/themes/current/editor?context=apps`;
+  const themeEditorUrl = `https://${shop}/admin/themes/current/editor?context=apps&activateAppId=13f3dd11-cce6-b53d-ecbe-b5b024b08fced7153848/quantity-break-widget`;
 
   return (
     <s-page heading="Ofertas">
