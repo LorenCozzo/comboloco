@@ -38,7 +38,7 @@ subpath = "comboloco"
 prefix = "apps"
 
 [auth]
-redirect_urls = [ "https://comboloco.vercel.app/api/auth" ]
+redirect_urls = [ "https://comboloco.vercel.app/auth/callback" ]
 
 [build]
 automatically_update_urls_on_dev = true
