@@ -1,3 +1,4 @@
+import React from "react";
 import type {
   ActionFunctionArgs,
   HeadersFunction,
@@ -26,6 +27,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const intent = formData.get("_action") as string;
   const id = formData.get("id") as string;
+
+  if (intent === "edit") {
+    return redirect(`/app/bundles/${id}`);
+  }
 
   if (intent === "create") {
     const bundle = await db.quantityBundle.create({
@@ -65,9 +70,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 type Bundle = Awaited<ReturnType<typeof loader>>["bundles"][number];
 
+const btnStyle = (color = "#374151"): React.CSSProperties => ({
+  padding: "8px 16px",
+  border: `1.5px solid ${color}`,
+  borderRadius: "8px",
+  color,
+  fontWeight: 600,
+  fontSize: "14px",
+  textDecoration: "none",
+  cursor: "pointer",
+  background: "white",
+  textAlign: "center",
+  minWidth: "100px",
+  height: "36px",
+});
+
 function BundleRow({ bundle }: { bundle: Bundle }) {
   const toggleFetcher = useFetcher();
   const deleteFetcher = useFetcher();
+  const editFetcher = useFetcher();
 
   const isActive = toggleFetcher.state !== "idle" ? !bundle.isActive : bundle.isActive;
   if (deleteFetcher.state !== "idle") return null;
@@ -88,25 +109,15 @@ function BundleRow({ bundle }: { bundle: Bundle }) {
         </s-stack>
 
         <s-stack direction="inline" gap="base">
-          <s-button
-            variant="secondary"
-            onClick={() => { window.location.href = `/app/bundles/${bundle.id}`; }}
-          >
+          <button style={btnStyle("#374151")} onClick={() => editFetcher.submit({ _action: "edit", id: bundle.id }, { method: "post" })}>
             Editar
-          </s-button>
-          <s-button
-            variant="secondary"
-            onClick={() => toggleFetcher.submit({ _action: "toggle", id: bundle.id }, { method: "post" })}
-          >
+          </button>
+          <button style={btnStyle()} onClick={() => toggleFetcher.submit({ _action: "toggle", id: bundle.id }, { method: "post" })}>
             {isActive ? "Desactivar" : "Activar"}
-          </s-button>
-          <s-button
-            variant="secondary"
-            tone="critical"
-            onClick={() => deleteFetcher.submit({ _action: "delete", id: bundle.id }, { method: "post" })}
-          >
+          </button>
+          <button style={btnStyle("#B91C1C")} onClick={() => deleteFetcher.submit({ _action: "delete", id: bundle.id }, { method: "post" })}>
             Eliminar
-          </s-button>
+          </button>
         </s-stack>
       </s-stack>
     </s-box>
@@ -116,6 +127,7 @@ function BundleRow({ bundle }: { bundle: Bundle }) {
 export default function BundleList() {
   const { bundles, shop } = useLoaderData<typeof loader>();
   const createFetcher = useFetcher();
+
 
   const handleCreate = () =>
     createFetcher.submit({ _action: "create" }, { method: "post" });

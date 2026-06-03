@@ -119,39 +119,54 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     );
   }
 
-  if (applyTo === "ALL") {
-    // Buscar el discount node de esta función para escribirle el metafield
-    const discountRes = await admin.graphql(`
-      #graphql
-      query GetDiscount {
-        discountNodes(first: 5, query: "title:ComboLoco Quantity Breaks") {
-          nodes { id }
+  // Siempre actualizar el discount node con el mapa completo de todos los bundles activos
+  const discountRes = await admin.graphql(`
+    #graphql
+    query GetDiscount {
+      discountNodes(first: 5, query: "title:ComboLoco Quantity Breaks") {
+        nodes {
+          id
+          metafield(namespace: "quantity_breaks", key: "bundle_map") { value }
         }
       }
-    `);
-    const discountData = await discountRes.json();
-    const discountId = discountData?.data?.discountNodes?.nodes?.[0]?.id;
-    if (discountId) {
-      await admin.graphql(
-        `#graphql
-        mutation SetDiscountMetafield($metafields: [MetafieldsSetInput!]!) {
-          metafieldsSet(metafields: $metafields) {
-            userErrors { field message }
-          }
-        }`,
-        {
-          variables: {
-            metafields: [{
-              ownerId: discountId,
-              namespace: "quantity_breaks",
-              key: "config",
-              value: tiersJson,
-              type: "json",
-            }],
-          },
-        },
-      );
     }
+  `);
+  const discountData = await discountRes.json();
+  const discountNode = discountData?.data?.discountNodes?.nodes?.[0];
+  if (discountNode) {
+    // Leer mapa existente y actualizar solo la entrada de este bundle
+    let bundleMap: Record<string, unknown> = {};
+    try { bundleMap = JSON.parse(discountNode.metafield?.value || "{}"); } catch {}
+
+    const tiersArray = tiersData.map((t, i) => ({
+      quantity: Number(t.quantity),
+      discountType: t.discountType,
+      discountValue: Number(t.discountValue),
+      position: i,
+    }));
+
+    const mapKey = applyTo === "PRODUCT" && productId ? productId : "ALL";
+    bundleMap[mapKey] = tiersArray;
+
+    await admin.graphql(
+      `#graphql
+      mutation SetDiscountMetafield($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          userErrors { field message }
+        }
+      }`,
+      {
+        variables: {
+          metafields: [{
+            ownerId: discountNode.id,
+            namespace: "quantity_breaks",
+            key: "bundle_map",
+            value: JSON.stringify(bundleMap),
+            type: "json",
+          }],
+        },
+      },
+    );
   }
 
   return { ok: true };

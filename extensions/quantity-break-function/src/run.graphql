@@ -23,7 +23,7 @@ query RunInput {
     }
   }
   discountNode {
-    metafield(namespace: "quantity_breaks", key: "config") {
+    bundleMap: metafield(namespace: "quantity_breaks", key: "bundle_map") {
       value
     }
   }
