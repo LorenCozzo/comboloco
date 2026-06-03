@@ -6,7 +6,20 @@ import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
+  const { billing } = await authenticate.admin(request);
+
+  const { hasActivePayment } = await billing.check({
+    plans: ["ComboLoco Pro"],
+    isTest: process.env.NODE_ENV !== "production",
+  });
+
+  if (!hasActivePayment) {
+    await billing.request({
+      plan: "ComboLoco Pro",
+      isTest: process.env.NODE_ENV !== "production",
+      returnUrl: process.env.SHOPIFY_APP_URL,
+    });
+  }
 
   // eslint-disable-next-line no-undef
   return { apiKey: process.env.SHOPIFY_API_KEY || "" };
