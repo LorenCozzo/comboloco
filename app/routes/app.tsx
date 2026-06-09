@@ -1,5 +1,5 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { Outlet, useLoaderData, useRouteError, useFetcher } from "react-router";
+import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
@@ -19,7 +19,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function App() {
   const { apiKey, hasActivePayment } = useLoaderData<typeof loader>();
-  const subscribeFetcher = useFetcher();
 
   if (!hasActivePayment) {
     return (
@@ -29,15 +28,14 @@ export default function App() {
           <p style={{ color: "#6B7280", marginBottom: 32 }}>
             ComboLoco requiere una suscripción activa para funcionar. Comenzá con 7 días gratis, sin cargo hasta que termine el período de prueba.
           </p>
-          <subscribeFetcher.Form method="post" action="/app/subscribe">
+          <form method="post" action="/app/subscribe" target="_top">
             <button
               type="submit"
-              disabled={subscribeFetcher.state !== "idle"}
               style={{ background: "#16A34A", color: "white", border: "none", borderRadius: 8, padding: "12px 32px", fontSize: 16, fontWeight: 600, cursor: "pointer" }}
             >
-              {subscribeFetcher.state !== "idle" ? "Redirigiendo..." : "Activar prueba gratuita →"}
+              Activar prueba gratuita →
             </button>
-          </subscribeFetcher.Form>
+          </form>
         </div>
       </AppProvider>
     );
