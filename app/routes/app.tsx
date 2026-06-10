@@ -6,15 +6,27 @@ import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { billing } = await authenticate.admin(request);
+  const { billing, admin } = await authenticate.admin(request);
+
+  const shopRes = await admin.graphql(`#graphql
+    query ShopPlan {
+      shop {
+        plan {
+          partnerDevelopment
+        }
+      }
+    }
+  `);
+  const shopData = await shopRes.json();
+  const isTest = shopData?.data?.shop?.plan?.partnerDevelopment ?? false;
 
   await billing.require({
     plans: ["ComboLoco Pro"],
-    isTest: process.env.NODE_ENV !== "production",
+    isTest,
     onFailure: async () =>
       billing.request({
         plan: "ComboLoco Pro",
-        isTest: process.env.NODE_ENV !== "production",
+        isTest,
       }),
   });
 
