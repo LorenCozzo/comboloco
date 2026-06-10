@@ -1,9 +1,12 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { Outlet, useLoaderData, useRouteError } from "react-router";
-import { boundary } from "@shopify/shopify-app-react-router/server";
+import { boundary, BillingInterval } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
 import { authenticate } from "../shopify.server";
+
+const COMMUNITY_PROMO_CODE = "ECOMMSYSTEM25";
+const COMMUNITY_PROMO_DISCOUNT = 0.25;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { billing, admin } = await authenticate.admin(request);
@@ -20,6 +23,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shopData = await shopRes.json();
   const isTest = shopData?.data?.shop?.plan?.partnerDevelopment ?? false;
 
+  const url = new URL(request.url);
+  const promoCode = url.searchParams.get("promo")?.trim().toUpperCase();
+  const hasCommunityPromo = promoCode === COMMUNITY_PROMO_CODE;
+
   await billing.require({
     plans: ["ComboLoco Pro"],
     isTest,
@@ -27,6 +34,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       billing.request({
         plan: "ComboLoco Pro",
         isTest,
+        ...(hasCommunityPromo
+          ? {
+              lineItems: [
+                {
+                  interval: BillingInterval.Every30Days,
+                  discount: { value: { percentage: COMMUNITY_PROMO_DISCOUNT } },
+                },
+              ],
+            }
+          : {}),
       }),
   });
 
