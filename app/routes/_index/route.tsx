@@ -12,7 +12,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
-  return { showForm: Boolean(login) };
+  // Only show the manual shop-domain login form outside production. Shopify
+  // App Store review requires installs to be initiated from a Shopify-owned
+  // surface, not by typing a shop domain into the app's public marketing page.
+  // eslint-disable-next-line no-undef
+  return { showForm: process.env.NODE_ENV !== "production" && Boolean(login) };
 };
 
 export default function App() {
