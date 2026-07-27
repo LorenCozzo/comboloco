@@ -14,6 +14,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   await db.quantityBundle.deleteMany({ where: { shop } });
+  await db.shopBilling.deleteMany({ where: { shop } });
 
   return new Response();
 };

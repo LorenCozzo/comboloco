@@ -10,6 +10,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (topic === "SHOP_REDACT") {
     await db.quantityBundle.deleteMany({ where: { shop } });
     await db.session.deleteMany({ where: { shop } });
+    await db.shopBilling.deleteMany({ where: { shop } });
   }
 
   // customers/data_request and customers/redact: we don't store personal customer data

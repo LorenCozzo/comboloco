@@ -34,10 +34,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const promoCode = url.searchParams.get("promo")?.trim().toUpperCase();
   const hasCommunityPromo = promoCode === COMMUNITY_PROMO_CODE;
 
-  // Just returned from approving/declining a charge: trust Shopify's own
-  // redirect rather than re-querying immediately (the subscription may not
-  // be marked active on Shopify's side yet).
-  const justReturnedFromBilling = url.searchParams.has("charge_id");
+  // Just returned from approving/declining a charge. We still need to know
+  // which one happened: querying the specific charge by id is a direct
+  // node lookup (not the eventually-consistent activeSubscriptions list),
+  // so it doesn't reintroduce the read-after-write race that made us skip
+  // billing.require here in the first place.
+  const chargeId = url.searchParams.get("charge_id");
 
   const billingRecord = await prisma.shopBilling.findUnique({
     where: { shop: session.shop },
@@ -46,12 +48,50 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     !!billingRecord?.isActive &&
     Date.now() - billingRecord.checkedAt.getTime() < BILLING_RECHECK_MS;
 
-  if (justReturnedFromBilling) {
+  if (chargeId) {
+    const chargeRes = await admin.graphql(
+      `#graphql
+        query AppSubscriptionStatus($id: ID!) {
+          node(id: $id) {
+            ... on AppSubscription {
+              status
+            }
+          }
+        }
+      `,
+      { variables: { id: `gid://shopify/AppSubscription/${chargeId}` } },
+    );
+    const chargeData = await chargeRes.json();
+    const status = chargeData?.data?.node?.status;
+    const isActive = status === "ACTIVE";
+
     await prisma.shopBilling.upsert({
       where: { shop: session.shop },
-      create: { shop: session.shop, isActive: true },
-      update: { isActive: true, checkedAt: new Date() },
+      create: { shop: session.shop, isActive },
+      update: { isActive, checkedAt: new Date() },
     });
+
+    if (!isActive) {
+      await billing.require({
+        plans: ["ComboLoco Pro"],
+        isTest,
+        onFailure: async () =>
+          billing.request({
+            plan: "ComboLoco Pro",
+            isTest,
+            ...(hasCommunityPromo
+              ? {
+                  lineItems: [
+                    {
+                      interval: BillingInterval.Every30Days,
+                      discount: { value: { percentage: COMMUNITY_PROMO_DISCOUNT } },
+                    },
+                  ],
+                }
+              : {}),
+          }),
+      });
+    }
   } else if (!isRecentlyVerified) {
     await billing.require({
       plans: ["ComboLoco Pro"],
