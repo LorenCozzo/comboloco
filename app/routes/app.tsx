@@ -4,12 +4,19 @@ import { boundary, BillingInterval } from "@shopify/shopify-app-react-router/ser
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
 import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
 
 const COMMUNITY_PROMO_CODE = "ECOMMSYSTEM25";
 const COMMUNITY_PROMO_DISCOUNT = 0.25;
 
+// How long we trust a locally-recorded "active" billing status before asking
+// Shopify again. Keeps every non-billing navigation (e.g. leaving to the
+// theme editor and back) from racing Shopify's own read-after-write lag on
+// the subscription, which was causing a repeated replace-subscription loop.
+const BILLING_RECHECK_MS = 24 * 60 * 60 * 1000;
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { billing, admin } = await authenticate.admin(request);
+  const { billing, admin, session } = await authenticate.admin(request);
 
   const shopRes = await admin.graphql(`#graphql
     query ShopPlan {
@@ -27,12 +34,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const promoCode = url.searchParams.get("promo")?.trim().toUpperCase();
   const hasCommunityPromo = promoCode === COMMUNITY_PROMO_CODE;
 
-  // Just returned from approving/declining a charge: skip the check on this
-  // request to avoid re-requesting billing before Shopify finishes marking
-  // the subscription as active (which causes a replace-subscription loop).
+  // Just returned from approving/declining a charge: trust Shopify's own
+  // redirect rather than re-querying immediately (the subscription may not
+  // be marked active on Shopify's side yet).
   const justReturnedFromBilling = url.searchParams.has("charge_id");
 
-  if (!justReturnedFromBilling) {
+  const billingRecord = await prisma.shopBilling.findUnique({
+    where: { shop: session.shop },
+  });
+  const isRecentlyVerified =
+    !!billingRecord?.isActive &&
+    Date.now() - billingRecord.checkedAt.getTime() < BILLING_RECHECK_MS;
+
+  if (justReturnedFromBilling) {
+    await prisma.shopBilling.upsert({
+      where: { shop: session.shop },
+      create: { shop: session.shop, isActive: true },
+      update: { isActive: true, checkedAt: new Date() },
+    });
+  } else if (!isRecentlyVerified) {
     await billing.require({
       plans: ["ComboLoco Pro"],
       isTest,
@@ -51,6 +71,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
               }
             : {}),
         }),
+    });
+
+    // billing.require throws (redirecting to onFailure) when there's no
+    // active subscription, so reaching this line means it's active.
+    await prisma.shopBilling.upsert({
+      where: { shop: session.shop },
+      create: { shop: session.shop, isActive: true },
+      update: { isActive: true, checkedAt: new Date() },
     });
   }
 

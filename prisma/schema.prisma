@@ -29,6 +29,12 @@ model Session {
   refreshTokenExpires DateTime?
 }
 
+model ShopBilling {
+  shop      String   @id
+  isActive  Boolean  @default(false)
+  checkedAt DateTime @default(now())
+}
+
 model QuantityBundle {
   id                          String   @id @default(cuid())
   shop                        String
