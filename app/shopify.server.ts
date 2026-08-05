@@ -7,6 +7,12 @@ import {
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
+import {
+  PLAN_NAME,
+  PLAN_PRICE,
+  PLAN_CURRENCY,
+  TRIAL_DAYS,
+} from "./billing.shared";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -18,15 +24,15 @@ const shopify = shopifyApp({
   sessionStorage: new PrismaSessionStorage(prisma) as any,
   distribution: AppDistribution.AppStore,
   billing: {
-    "ComboLoco Pro": {
+    [PLAN_NAME]: {
       lineItems: [
         {
-          amount: 9.99,
-          currencyCode: "USD",
+          amount: PLAN_PRICE,
+          currencyCode: PLAN_CURRENCY,
           interval: BillingInterval.Every30Days,
         },
       ],
-      trialDays: 7,
+      trialDays: TRIAL_DAYS,
     },
   },
   future: {
