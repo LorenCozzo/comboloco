@@ -244,7 +244,6 @@ function Paywall({
           <s-text-field
             name="promo"
             label="Código de comunidad (opcional)"
-            placeholder={COMMUNITY_PROMO_CODE}
             value={promo}
             onChange={(e) => setPromo(e.currentTarget.value)}
             autocomplete="off"
